@@ -82,6 +82,17 @@
             }
         },
         {
+            "test": "context.buildTimeConstants && context.buildTimeConstants.OPEN_HARMONY",
+            "isVirtualModule": true,
+            "overrides": {
+                "pal/minigame": "pal/minigame/non-minigame.ts",
+                "pal/audio": "pal/audio/open-harmony/player.ts",
+                "pal/system-info": "pal/system-info/native/system-info.ts",
+                "pal/screen-adapter": "pal/screen-adapter/native/screen-adapter.ts",
+                "pal/input": "pal/input/native/index.ts"
+            }
+        },
+        {
             "test": "context.buildTimeConstants && context.buildTimeConstants.MINIGAME",
             "isVirtualModule": true,
             "overrides": {

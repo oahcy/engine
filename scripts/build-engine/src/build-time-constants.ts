@@ -46,7 +46,7 @@ export function setupBuildTimeConstants ({
 }
 
 export function getPlatformConstantNames () {
-    return ['HTML5', 'WECHAT', 'ALIPAY', 'BAIDU', 'XIAOMI', 'BYTEDANCE', 'OPPO', 'VIVO', 'HUAWEI', 'NATIVE', 'COCOSPLAY', 'LINKSURE', 'QTT'];
+    return ['HTML5', 'WECHAT', 'ALIPAY', 'BAIDU', 'XIAOMI', 'BYTEDANCE', 'OPPO', 'VIVO', 'HUAWEI', 'NATIVE', 'COCOSPLAY', 'LINKSURE', 'QTT', 'OPEN_HARMONY'];
 }
 
 export function getBuildModeConstantNames () {
