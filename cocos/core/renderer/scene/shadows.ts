@@ -23,7 +23,6 @@
  THE SOFTWARE.
  */
 
-import { JSB } from 'internal:constants';
 import { Material } from '../../assets/material';
 import { Sphere } from '../../geometry';
 import { Color, Mat4, Vec3, Vec2 } from '../../math';
@@ -31,7 +30,6 @@ import { legacyCC } from '../../global-exports';
 import { Enum } from '../../value-types';
 import type { ShadowsInfo } from '../../scene-graph/scene-globals';
 import { IMacroPatch } from '../core/pass';
-import { NativeShadow } from '../native-scene';
 import { Shader } from '../../gfx';
 
 /**
@@ -108,18 +106,88 @@ export const PCFType = Enum({
     HARD: 0,
 
     /**
-     * @zh 软阴影
-     * @en soft shadow
+     * @zh x4 次采样
+     * @en x4 times
      * @readonly
      */
     SOFT: 1,
 
     /**
-     * @zh 软阴影
-     * @en soft shadow
+     * @zh x9 次采样
+     * @en x9 times
      * @readonly
      */
     SOFT_2X: 2,
+
+    /**
+     * @zh x16 次采样
+     * @en x16 times
+     * @readonly
+     */
+    SOFT_4X: 3,
+});
+
+/**
+ * @zh 级联阴影贴图层级。
+ * @en The CSM shadow level
+ * @enum Shadows.CSMLevel
+ */
+export const CSMLevel = Enum({
+    /**
+     * @zh 1 个层级
+     * @en level 1
+     * @readonly
+     */
+    LEVEL_1: 1,
+
+    /**
+     * @zh 2 个层级
+     * @en level 2
+     * @readonly
+     */
+    LEVEL_2: 2,
+
+    /**
+     * @zh 3 个层级
+     * @en level 3
+     * @readonly
+     */
+    LEVEL_3: 3,
+
+    /**
+     * @zh 4 个层级
+     * @en level 4
+     * @readonly
+     */
+    LEVEL_4: 4,
+});
+
+/**
+ * @zh 级联阴影性能优化模式。
+ * @en The CSM performance optimization mode
+ * @enum Shadows.CSMOptimizationMode
+ */
+export const CSMOptimizationMode = Enum({
+    /**
+     * @zh 没有性能优化
+     * @en has no performance optimization
+     * @readonly
+     */
+    NONE: 1,
+
+    /**
+     * @zh 剔除层与层之间重复物体
+     * @en Eliminate duplicate objects between layers
+     * @readonly
+     */
+    RemoveDuplicates: 2,
+
+    /**
+      * @zh 取消稳抖
+      * @en Disable rotation fix
+      * @readonly
+      */
+    DisableRotationFix: 3,
 });
 
 const SHADOW_TYPE_NONE = ShadowType.ShadowMap + 1;
@@ -150,7 +218,7 @@ export class Shadows {
     }
 
     set enabled (val: boolean) {
-        this._setEnable(val);
+        this._enabled = val;
         this.activate();
     }
 
@@ -162,7 +230,7 @@ export class Shadows {
         return this._type;
     }
     set type (val: number) {
-        this._setType(val);
+        this._type = this.enabled ? val : SHADOW_TYPE_NONE;
         this.activate();
     }
 
@@ -176,9 +244,6 @@ export class Shadows {
 
     set normal (val: Vec3) {
         Vec3.copy(this._normal, val);
-        if (JSB) {
-            this._nativeObj!.normal = this._normal;
-        }
     }
 
     /**
@@ -191,9 +256,6 @@ export class Shadows {
 
     set distance (val: number) {
         this._distance = val;
-        if (JSB) {
-            this._nativeObj!.distance = val;
-        }
     }
 
     /**
@@ -206,9 +268,6 @@ export class Shadows {
 
     set shadowColor (color: Color) {
         this._shadowColor = color;
-        if (JSB) {
-            this._nativeObj!.color = color;
-        }
     }
 
     /**
@@ -220,9 +279,6 @@ export class Shadows {
     }
     public set size (val: Vec2) {
         this._size.set(val);
-        if (JSB) {
-            this._nativeObj!.size = val;
-        }
     }
 
     /**
@@ -234,9 +290,6 @@ export class Shadows {
     }
     public set shadowMapDirty (val: boolean) {
         this._shadowMapDirty = val;
-        if (JSB) {
-            this._nativeObj!.shadowMapDirty = val;
-        }
     }
 
     /**
@@ -268,57 +321,18 @@ export class Shadows {
     public maxReceived = 4;
 
     // local set
-    /**
-     * @internal
-     */
-    public firstSetCSM = false;
-    /**
-     * @en The far clip plane of the shadow camera
-     * @zh 阴影相机的远裁剪平面
-     */
-    public shadowCameraFar = 0;
-    /**
-     * @en Shadow camera's view matrix
-     * @zh 阴影相机的视图矩阵
-     */
-    public matShadowView = new Mat4();
-    /**
-     * @en Shadow camera's projection matrix
-     * @zh 阴影相机的投影矩阵
-     */
-    public matShadowProj = new Mat4();
-    /**
-     * @en Shadow camera's view projection matrix
-     * @zh 阴影相机的视图投影矩阵
-     */
-    public matShadowViewProj = new Mat4();
+    protected _matLight = new Mat4();
+    protected _material: Material | null = null;
+    protected _instancingMaterial: Material | null = null;
 
+    // public properties of shadow
     protected _enabled = false;
     protected _type = SHADOW_TYPE_NONE;
     protected _distance = 0;
     protected _normal = new Vec3(0, 1, 0);
     protected _shadowColor = new Color(0, 0, 0, 76);
-    protected _size: Vec2 = new Vec2(512, 512);
+    protected _size: Vec2 = new Vec2(1024, 1024);
     protected _shadowMapDirty = false;
-
-    protected _matLight = new Mat4();
-    protected _material: Material | null = null;
-    protected _instancingMaterial: Material | null = null;
-
-    protected declare _nativeObj: NativeShadow | null;
-
-    /**
-     * @internal
-     */
-    get native (): NativeShadow {
-        return this._nativeObj!;
-    }
-
-    constructor () {
-        if (JSB) {
-            this._nativeObj = new NativeShadow();
-        }
-    }
 
     /**
      * @en Get the shader for the planar shadow with macro patches
@@ -329,10 +343,7 @@ export class Shadows {
     public getPlanarShader (patches: IMacroPatch[] | null): Shader | null {
         if (!this._material) {
             this._material = new Material();
-            this._material.initialize({ effectName: 'planar-shadow' });
-            if (JSB) {
-                this._nativeObj!.planarPass = this._material.passes[0].native;
-            }
+            this._material.initialize({ effectName: 'pipeline/planar-shadow' });
         }
 
         return this._material.passes[0].getShaderVariant(patches);
@@ -347,39 +358,24 @@ export class Shadows {
     public getPlanarInstanceShader (patches: IMacroPatch[] | null): Shader | null {
         if (!this._instancingMaterial) {
             this._instancingMaterial = new Material();
-            this._instancingMaterial.initialize({ effectName: 'planar-shadow', defines: { USE_INSTANCING: true } });
-            if (JSB) {
-                this._nativeObj!.instancePass = this._instancingMaterial.passes[0].native;
-            }
+            this._instancingMaterial.initialize({ effectName: 'pipeline/planar-shadow', defines: { USE_INSTANCING: true } });
         }
 
         return this._instancingMaterial.passes[0].getShaderVariant(patches);
     }
 
-    private _setEnable (val: boolean) {
-        this._enabled = val;
-        if (JSB) {
-            this._nativeObj!.enabled = val;
-            if (!val) this._setType(SHADOW_TYPE_NONE);
-        }
-    }
-
-    private _setType (val) {
-        this._type = this.enabled ? val : SHADOW_TYPE_NONE;
-        if (JSB) {
-            this._nativeObj!.shadowType = this._type;
-        }
-    }
-
     public initialize (shadowsInfo: ShadowsInfo) {
-        this._setEnable(shadowsInfo.enabled);
-        this._setType(shadowsInfo.type);
+        this._enabled = shadowsInfo.enabled;
+        this._type = this.enabled ? shadowsInfo.type : SHADOW_TYPE_NONE;
 
         this.normal = shadowsInfo.planeDirection;
         this.distance = shadowsInfo.planeHeight;
         this.shadowColor = shadowsInfo.shadowColor;
         this.maxReceived = shadowsInfo.maxReceived;
-        this.size = shadowsInfo.size;
+        if (shadowsInfo.shadowMapSize !== this._size.x) {
+            this.size.set(shadowsInfo.shadowMapSize, shadowsInfo.shadowMapSize);
+            this._shadowMapDirty = true;
+        }
     }
 
     public activate () {
@@ -393,28 +389,15 @@ export class Shadows {
     protected _updatePlanarInfo () {
         if (!this._material) {
             this._material = new Material();
-            this._material.initialize({ effectName: 'planar-shadow' });
-            if (JSB) {
-                this._nativeObj!.planarPass = this._material.passes[0].native;
-            }
+            this._material.initialize({ effectName: 'pipeline/planar-shadow' });
         }
         if (!this._instancingMaterial) {
             this._instancingMaterial = new Material();
-            this._instancingMaterial.initialize({ effectName: 'planar-shadow', defines: { USE_INSTANCING: true } });
-            if (JSB) {
-                this._nativeObj!.instancePass = this._instancingMaterial.passes[0].native;
-            }
-        }
-    }
-
-    protected _destroy () {
-        if (JSB) {
-            this._nativeObj = null;
+            this._instancingMaterial.initialize({ effectName: 'pipeline/planar-shadow', defines: { USE_INSTANCING: true } });
         }
     }
 
     public destroy () {
-        this._destroy();
         if (this._material) {
             this._material.destroy();
         }

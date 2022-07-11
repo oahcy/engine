@@ -33,7 +33,7 @@ OSType System::getOSType() const {
     return OSType::LINUX;
 }
 
-std::string System::getDeviceModel() const {
+ccstd::string System::getDeviceModel() const {
     return "Empty";
 }
 
@@ -41,19 +41,19 @@ System::LanguageType System::getCurrentLanguage() const {
     return LanguageType::ENGLISH;
 }
 
-std::string System::getCurrentLanguageCode() const {
+ccstd::string System::getCurrentLanguageCode() const {
     return "en";
 }
 
-std::string System::getSystemVersion() const {
+ccstd::string System::getSystemVersion() const {
     return "empty";
 }
 
-bool System::openURL(const std::string& url) {
+bool System::openURL(const ccstd::string &url) {
     return true;
 }
 
-System::LanguageType System::getLanguageTypeByISO2(const char* code) const {
+System::LanguageType System::getLanguageTypeByISO2(const char *code) const {
     // this function is used by all platforms to get system language
     // except windows: cocos/platform/win32/CCApplication-win32.cpp
     LanguageType ret = LanguageType::ENGLISH;

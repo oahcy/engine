@@ -216,7 +216,14 @@ export class AnimationState extends Playable {
      * @zh 播放速率。
      * @default: 1.0
      */
-    public speed = 1.0;
+    get speed () {
+        return this._speed;
+    }
+
+    set speed (value) {
+        this._speed = value;
+        this._clipEmbeddedPlayerEval.notifyHostSpeedChanged(value);
+    }
 
     /**
      * @en The current accumulated time of this animation in seconds.
@@ -238,7 +245,7 @@ export class AnimationState extends Playable {
      * @zh 获取动画播放的比例时间。
      */
     get ratio () {
-        return this.current / this.duration;
+        return this.duration === 0.0 ? 0.0 : this.current / this.duration;
     }
 
     /**
@@ -271,6 +278,7 @@ export class AnimationState extends Playable {
     protected _curveLoaded = false;
 
     private _clip: AnimationClip;
+    private _speed = 1.0;
     private _useSimpleProcess = false;
     private _target: Node | null = null;
     private _wrapMode = WrapMode.Normal;
@@ -297,6 +305,7 @@ export class AnimationState extends Playable {
     private _weight = 1.0;
     private _clipEval: ReturnType<AnimationClip['createEvaluator']> | undefined;
     private _clipEventEval: ReturnType<AnimationClip['createEventEvaluator']> | undefined;
+    private declare _clipEmbeddedPlayerEval: ReturnType<AnimationClip['createEmbeddedPlayerEvaluator']>;
     /**
      * @internal For internal usage. Really hack...
      */
@@ -339,7 +348,7 @@ export class AnimationState extends Playable {
 
         this.duration = clip.duration;
         this._invDuration = 1.0 / this.duration;
-        this.speed = clip.speed;
+        this._speed = clip.speed;
         this.wrapMode = clip.wrapMode;
         this.frameRate = clip.sample;
         this._playbackRange.min = 0.0;
@@ -367,6 +376,9 @@ export class AnimationState extends Playable {
         if (!(EDITOR && !legacyCC.GAME_VIEW)) {
             this._clipEventEval = clip.createEventEvaluator(this._targetNode);
         }
+
+        this._clipEmbeddedPlayerEval = clip.createEmbeddedPlayerEvaluator(this._targetNode);
+        this._clipEmbeddedPlayerEval.notifyHostSpeedChanged(this._speed);
     }
 
     public destroy () {
@@ -482,10 +494,14 @@ export class AnimationState extends Playable {
 
     public sample () {
         const info = this.getWrappedInfo(this.time, this._wrappedInfo);
+        if (this._playbackDuration === 0.0) {
+            return info;
+        }
         this._sampleCurves(info.time);
         if (!EDITOR || legacyCC.GAME_VIEW) {
             this._sampleEvents(info);
         }
+        this._sampleEmbeddedPlayers(info);
         return info;
     }
 
@@ -494,6 +510,7 @@ export class AnimationState extends Playable {
         this._delayTime = this._delay;
         this._onReplayOrResume();
         this.emit(EventType.PLAY, this);
+        this._clipEmbeddedPlayerEval.notifyHostPlay(this.current);
     }
 
     protected onStop () {
@@ -501,16 +518,19 @@ export class AnimationState extends Playable {
             this._onPauseOrStop();
         }
         this.emit(EventType.STOP, this);
+        this._clipEmbeddedPlayerEval.notifyHostStop();
     }
 
     protected onResume () {
         this._onReplayOrResume();
         this.emit(EventType.RESUME, this);
+        this._clipEmbeddedPlayerEval.notifyHostPlay(this.current);
     }
 
     protected onPause () {
         this._onPauseOrStop();
         this.emit(EventType.PAUSE, this);
+        this._clipEmbeddedPlayerEval.notifyHostPause(this.current);
     }
 
     /**
@@ -562,6 +582,9 @@ export class AnimationState extends Playable {
     private simpleProcess () {
         const playbackStart = this._playbackRange.min;
         const playbackDuration = this._playbackDuration;
+        if (playbackDuration === 0.0) {
+            return;
+        }
 
         let time = this.time % playbackDuration;
         if (time < 0.0) { time += playbackDuration; }
@@ -569,9 +592,12 @@ export class AnimationState extends Playable {
         const ratio = realTime * this._invDuration;
         this._sampleCurves(playbackStart + time);
 
+        const wrapInfo = this.getWrappedInfo(this.time, this._wrappedInfo);
         if (!EDITOR || legacyCC.GAME_VIEW) {
-            this._sampleEvents(this.getWrappedInfo(this.time, this._wrappedInfo));
+            this._sampleEvents(wrapInfo);
         }
+
+        this._sampleEmbeddedPlayers(wrapInfo);
 
         if (this._allowLastFrame) {
             if (Number.isNaN(this._lastIterations)) {
@@ -613,6 +639,15 @@ export class AnimationState extends Playable {
         const playbackStart = this._getPlaybackStart();
         const playbackEnd = this._getPlaybackEnd();
         const playbackDuration = playbackEnd - playbackStart;
+
+        if (playbackDuration === 0.0) {
+            info.time = 0.0;
+            info.ratio = 0.0;
+            info.direction = 1.0;
+            info.stopped = true;
+            info.iterations = 0.0;
+            return info;
+        }
 
         let stopped = false;
         const repeatCount = this.repeatCount;
@@ -677,6 +712,13 @@ export class AnimationState extends Playable {
             wrapInfo.ratio,
             wrapInfo.direction,
             wrapInfo.iterations,
+        );
+    }
+
+    private _sampleEmbeddedPlayers (wrapInfo: WrappedInfo) {
+        this._clipEmbeddedPlayerEval.evaluate(
+            wrapInfo.time,
+            Math.trunc(wrapInfo.iterations),
         );
     }
 

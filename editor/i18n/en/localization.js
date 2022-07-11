@@ -874,6 +874,14 @@ module.exports = {
             label: "Running Stats",
             description: "Include various components and tools used to audit and display rendering stats.",
         },
+        geometry_renderer: {
+            label: "Geometry Renderer",
+            description: "Used to render various geometries for debugging or use in editor.",
+        },
+        debug_renderer: {
+            label: "Debug Renderer",
+            description: "Used to render screen text for debugging.",
+        },
         tiled_map: {
             label: "Tiled Map",
             description: "Tiled map support.",

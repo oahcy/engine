@@ -25,7 +25,8 @@
 */
 
 import { ccclass, help, executionOrder, menu, tooltip, displayOrder, type, visible, override, serializable, range, slide } from 'cc.decorator';
-import { InstanceMaterialType, Renderable2D } from '../framework/renderable-2d';
+import { JSB } from 'internal:constants';
+import { InstanceMaterialType, UIRenderer } from '../framework/ui-renderer';
 import { clamp, Color, Mat4, Vec2, Vec3 } from '../../core/math';
 import { warnID } from '../../core/platform';
 import { IBatcher } from '../renderer/i-batcher';
@@ -33,14 +34,17 @@ import { ccenum } from '../../core/value-types/enum';
 import { Graphics } from './graphics';
 import { TransformBit } from '../../core/scene-graph/node-enum';
 import { SpriteFrame } from '../assets/sprite-frame';
-import { Game, Material, builtinResMgr, director, RenderingSubMesh, CCObject } from '../../core';
-import { Device, BufferInfo, BufferUsageBit, MemoryUsageBit, PrimitiveMode } from '../../core/gfx';
+import { Game, Material, builtinResMgr, director, CCObject, Node } from '../../core';
+import { Device, BufferInfo, BufferUsageBit, MemoryUsageBit, PrimitiveMode, deviceManager } from '../../core/gfx';
 import { legacyCC } from '../../core/global-exports';
 import { MaterialInstance, scene } from '../../core/renderer';
 import { Model } from '../../core/renderer/scene';
 import { vfmt, getAttributeStride } from '../renderer/vertex-format';
 import { Stage } from '../renderer/stencil-manager';
 import { NodeEventProcessor } from '../../core/scene-graph/node-event-processor';
+import { RenderingSubMesh } from '../../core/assets/rendering-sub-mesh';
+import { IAssemblerManager } from '../renderer/base';
+import { RenderEntity, RenderEntityType } from '../renderer/render-entity';
 
 const _worldMatrix = new Mat4();
 const _vec2_temp = new Vec2();
@@ -112,7 +116,8 @@ const SEGMENTS_MAX = 10000;
 @help('i18n:cc.Mask')
 @executionOrder(110)
 @menu('2D/Mask')
-export class Mask extends Renderable2D {
+export class Mask extends UIRenderer {
+    public static ChildPostAssembler: IAssemblerManager | null = null;
     /**
      * @en
      * The mask type.
@@ -142,10 +147,11 @@ export class Mask extends Renderable2D {
         if (this._type !== MaskType.IMAGE_STENCIL) {
             this._spriteFrame = null;
             this._updateGraphics();
-            if (this._renderData) {
-                this.destroyRenderData();
-                this._renderData = null;
-            }
+            // keep renderData to transport renderDrawInfo
+            // if (this.renderData) {
+            //     this.destroyRenderData();
+            //     this.renderData = null;
+            // }
         } else {
             this._useRenderData();
 
@@ -173,6 +179,12 @@ export class Mask extends Renderable2D {
         this.stencilStage = Stage.DISABLED;
         if (this._graphics) {
             this._graphics.stencilStage = Stage.DISABLED;
+        }
+
+        if (JSB) {
+            if (this._renderEntity) {
+                this._renderEntity.setIsMaskInverted(this._inverted);
+            }
         }
     }
 
@@ -346,6 +358,7 @@ export class Mask extends Renderable2D {
     protected _alphaThreshold = 0.1;
 
     protected _graphics: Graphics | null = null;
+    protected _maskNode: Node | null = null;
 
     private _clearModelMesh: RenderingSubMesh| null = null;
 
@@ -360,6 +373,18 @@ export class Mask extends Renderable2D {
 
         if (this._graphics) {
             this._graphics.onLoad();
+        }
+
+        if (JSB) {
+            if (!this._renderEntity) {
+                this.initRenderEntity();
+            }
+            if (this._renderEntity && this.renderData && this._graphics) {
+                this._renderEntity.setIsMask(true);
+                this._graphics.renderEntity!.setIsSubMask(true);
+                this._renderEntity.setIsMaskInverted(this._inverted);
+                this.renderData.renderDrawInfo.setIsMeshBuffer(true);
+            }
         }
     }
 
@@ -377,7 +402,7 @@ export class Mask extends Renderable2D {
         this._createGraphics();
         super.updateMaterial();
         this._updateGraphics();
-        this._renderFlag = this._canRender();
+        this.markForUpdateRenderData();
     }
 
     public onDisable () {
@@ -478,16 +503,27 @@ export class Mask extends Renderable2D {
         this._useRenderData();
     }
 
+    private _initGraphicsNode () {
+        const node = new Node('MASK_CHILD');
+        node.hideFlags |= CCObject.Flags.DontSave | CCObject.Flags.HideInHierarchy;
+        node.addComponent(Graphics);
+        node.setPosition(0, 0, 0);
+        this._maskNode = node;
+        this.node.insertChild(node, 0);
+    }
+
     protected _createGraphics () {
         if (!this._graphics) {
-            const graphics = this._graphics = new Graphics();
+            this._initGraphicsNode();
+            const graphics = this._graphics = this._maskNode!.getComponent(Graphics)!;
             graphics._objFlags |= CCObject.Flags.IsOnLoadCalled;// hack for destroy
-            graphics.node = this.node;
             graphics.node.getWorldMatrix();
             graphics.lineWidth = 0;
             const color = Color.WHITE.clone();
             color.a = 0;
             graphics.fillColor = color;
+            // @ts-ignore
+            graphics._postAssembler = Mask.ChildPostAssembler!.getAssembler(this);
         }
 
         this._updateMaterial();
@@ -536,11 +572,15 @@ export class Mask extends Renderable2D {
                 owner: this,
                 subModelIdx: 0,
             });
+            //sync to native
+            if (this.renderEntity) {
+                this.renderEntity.setCommitModelMaterial(this._clearStencilMtl);
+            }
 
             this._clearModel = director.root!.createModel(scene.Model);
             this._clearModel.node = this._clearModel.transform = this.node;
             const stride = getAttributeStride(vfmt);
-            const gfxDevice: Device = legacyCC.director.root.device;
+            const gfxDevice: Device = deviceManager.gfxDevice;
             const vertexBuffer = gfxDevice.createBuffer(new BufferInfo(
                 BufferUsageBit.VERTEX | BufferUsageBit.TRANSFER_DST,
                 MemoryUsageBit.DEVICE,
@@ -563,6 +603,14 @@ export class Mask extends Renderable2D {
             this._clearModelMesh.subMeshIdx = 0;
 
             this._clearModel.initSubModel(0, this._clearModelMesh, this._clearStencilMtl);
+
+            // sync to native
+            if (JSB) {
+                if (this._renderEntity && this._renderData) {
+                    const drawInfo = this._renderData.renderDrawInfo;
+                    drawInfo.setModel(this._clearModel);
+                }
+            }
         }
     }
 
@@ -599,19 +647,26 @@ export class Mask extends Renderable2D {
 
     protected _removeGraphics () {
         if (this._graphics) {
-            this._graphics.destroy();
-            this._graphics._destroyImmediate(); // FIX: cocos-creator/2d-tasks#2511. TODO: cocos-creator/2d-tasks#2516
+            // this._graphics.destroy();
+            // this._graphics._destroyImmediate(); // FIX: cocos-creator/2d-tasks#2511. TODO: cocos-creator/2d-tasks#2516
             this._graphics = null;
         }
     }
 
     protected _useRenderData () {
-        if (this._type === MaskType.IMAGE_STENCIL && !this._renderData) {
+        //if (this._type === MaskType.IMAGE_STENCIL && !this.renderData) {
+        if (!this.renderData) {
             if (this._assembler && this._assembler.createData) {
-                this._renderData = this._assembler.createData(this);
+                this.renderData = this._assembler.createData(this);
                 this.markForUpdateRenderData();
             }
         }
+    }
+
+    // RenderEntity
+    // it should be overwritten by inherited classes
+    protected initRenderEntity () {
+        this._renderEntity = new RenderEntity(this.batcher, RenderEntityType.DYNAMIC);
     }
 }
 

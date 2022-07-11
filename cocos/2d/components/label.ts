@@ -33,7 +33,7 @@ import { ccenum } from '../../core/value-types/enum';
 import { IBatcher } from '../renderer/i-batcher';
 import { FontAtlas } from '../assets/bitmap-font';
 import { CanvasPool, ISharedLabelData, LetterRenderTexture } from '../assembler/label/font-utils';
-import { InstanceMaterialType, Renderable2D } from '../framework/renderable-2d';
+import { InstanceMaterialType, UIRenderer } from '../framework/ui-renderer';
 import { TextureBase } from '../../core/assets/texture-base';
 import { PixelFormat } from '../../core/assets/asset-enum';
 import { legacyCC } from '../../core/global-exports';
@@ -189,7 +189,7 @@ ccenum(CacheMode);
 @help('i18n:cc.Label')
 @executionOrder(110)
 @menu('2D/Label')
-export class Label extends Renderable2D {
+export class Label extends UIRenderer {
     public static HorizontalAlign = HorizontalTextAlignment;
     public static VerticalAlign = VerticalTextAlignment;
     public static Overflow = Overflow;
@@ -224,7 +224,7 @@ export class Label extends Renderable2D {
         }
 
         this._string = value;
-        this.updateRenderData();
+        this.markForUpdateRenderData();
     }
 
     /**
@@ -246,7 +246,7 @@ export class Label extends Renderable2D {
         }
 
         this._horizontalAlign = value;
-        this.updateRenderData();
+        this.markForUpdateRenderData();
     }
 
     /**
@@ -268,7 +268,7 @@ export class Label extends Renderable2D {
         }
 
         this._verticalAlign = value;
-        this.updateRenderData();
+        this.markForUpdateRenderData();
     }
 
     /**
@@ -303,7 +303,7 @@ export class Label extends Renderable2D {
         }
 
         this._fontSize = value;
-        this.updateRenderData();
+        this.markForUpdateRenderData();
     }
 
     /**
@@ -325,7 +325,7 @@ export class Label extends Renderable2D {
         }
 
         this._fontFamily = value;
-        this.updateRenderData();
+        this.markForUpdateRenderData();
     }
 
     /**
@@ -346,7 +346,7 @@ export class Label extends Renderable2D {
         }
 
         this._lineHeight = value;
-        this.updateRenderData();
+        this.markForUpdateRenderData();
     }
 
     /**
@@ -370,7 +370,7 @@ export class Label extends Renderable2D {
         }
 
         this._spacingX = value;
-        this.updateRenderData();
+        this.markForUpdateRenderData();
     }
 
     /**
@@ -392,7 +392,7 @@ export class Label extends Renderable2D {
         }
 
         this._overflow = value;
-        this.updateRenderData();
+        this.markForUpdateRenderData();
     }
 
     /**
@@ -413,7 +413,7 @@ export class Label extends Renderable2D {
         }
 
         this._enableWrapText = value;
-        this.updateRenderData();
+        this.markForUpdateRenderData();
     }
 
     /**
@@ -439,7 +439,7 @@ export class Label extends Renderable2D {
         // if delete the font, we should change isSystemFontUsed to true
         this._isSystemFontUsed = !value;
 
-        if (EDITOR && value) {
+        if (EDITOR) {
             this._userDefinedFont = value;
         }
 
@@ -448,9 +448,9 @@ export class Label extends Renderable2D {
         // if (value && this._isSystemFontUsed)
         //     this._isSystemFontUsed = false;
 
-        if (this._renderData) {
+        if (this.renderData) {
             this.destroyRenderData();
-            this._renderData = null;
+            this.renderData = null;
         }
 
         this._fontAtlas = null;
@@ -475,7 +475,7 @@ export class Label extends Renderable2D {
         }
 
         this.destroyRenderData();
-        this._renderData = null;
+        this.renderData = null;
 
         if (EDITOR) {
             if (!value && this._isSystemFontUsed && this._userDefinedFont) {
@@ -490,7 +490,7 @@ export class Label extends Renderable2D {
             this.font = null;
         }
         this._flushAssembler();
-        this.updateRenderData();
+        this.markForUpdateRenderData();
     }
 
     /**
@@ -540,7 +540,7 @@ export class Label extends Renderable2D {
         }
 
         this._isBold = value;
-        this.updateRenderData();
+        this.markForUpdateRenderData();
     }
 
     /**
@@ -561,7 +561,7 @@ export class Label extends Renderable2D {
         }
 
         this._isItalic = value;
-        this.updateRenderData();
+        this.markForUpdateRenderData();
     }
 
     /**
@@ -582,7 +582,7 @@ export class Label extends Renderable2D {
         }
 
         this._isUnderline = value;
-        this.updateRenderData();
+        this.markForUpdateRenderData();
     }
 
     /**
@@ -599,7 +599,7 @@ export class Label extends Renderable2D {
     public set underlineHeight (value) {
         if (this._underlineHeight === value) return;
         this._underlineHeight = value;
-        this.updateRenderData();
+        this.markForUpdateRenderData();
     }
 
     get spriteFrame () {
@@ -729,17 +729,15 @@ export class Label extends Renderable2D {
     }
 
     public updateRenderData (force = false) {
-        this.markForUpdateRenderData();
-
         if (force) {
             this._flushAssembler();
             // Hack: Fixed the bug that richText wants to get the label length by _measureText,
             // _assembler.updateRenderData will update the content size immediately.
             if (this.renderData) this.renderData.vertDirty = true;
             this._applyFontTexture();
-            if (this._assembler) {
-                this._assembler.updateRenderData(this);
-            }
+        }
+        if (this._assembler) {
+            this._assembler.updateRenderData(this);
         }
     }
 
@@ -750,7 +748,7 @@ export class Label extends Renderable2D {
     // Cannot use the base class methods directly because BMFont and CHAR cannot be updated in assambler with just color.
     protected _updateColor () {
         super._updateColor();
-        this.updateRenderData(false);
+        this.markForUpdateRenderData();
     }
 
     protected _canRender () {
@@ -778,10 +776,11 @@ export class Label extends Renderable2D {
             this._assembler = assembler;
         }
 
-        if (!this._renderData) {
+        if (!this.renderData) {
             if (this._assembler && this._assembler.createData) {
-                this._renderData = this._assembler.createData(this);
-                this._renderData!.material = this.material;
+                this.renderData = this._assembler.createData(this);
+                this.renderData!.material = this.material;
+                this._updateColor();
             }
         }
     }

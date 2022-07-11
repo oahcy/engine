@@ -28,6 +28,7 @@
 #include "bindings/jswrapper/SeApi.h"
 #include "bindings/manual/jsb_conversions.h"
 #include "bindings/manual/jsb_global.h"
+#include "core/data/JSBNativeDataHolder.h"
 
 #include <fstream>
 #include <sstream>
@@ -36,12 +37,12 @@ bool js_gfx_Device_copyBuffersToTexture(se::State &s) { // NOLINT(readability-id
     auto *cobj = static_cast<cc::gfx::Device *>(s.nativeThisObject());
     SE_PRECONDITION2(cobj, false, "js_gfx_Device_copyBuffersToTexture : Invalid Native Object");
 
-    const auto &   args = s.args();
-    size_t         argc = args.size();
-    CC_UNUSED bool ok   = true;
+    const auto &args = s.args();
+    size_t argc = args.size();
+    CC_UNUSED bool ok = true;
     if (argc == 3) {
-        cc::gfx::BufferDataList        arg0;
-        cc::gfx::Texture *             arg1 = nullptr;
+        cc::gfx::BufferDataList arg0;
+        cc::gfx::Texture *arg1 = nullptr;
         cc::gfx::BufferTextureCopyList arg2;
         if (args[0].isObject()) {
             se::Object *dataObj = args[0].toObject();
@@ -53,7 +54,7 @@ bool js_gfx_Device_copyBuffersToTexture(se::State &s) { // NOLINT(readability-id
             se::Value value;
             for (uint32_t i = 0; i < length; ++i) {
                 if (dataObj->getArrayElement(i, &value)) {
-                    uint8_t *        ptr        = nullptr;
+                    uint8_t *ptr = nullptr;
                     CC_UNUSED size_t dataLength = 0;
                     if (value.isObject()) {
                         se::Object *obj = value.toObject();
@@ -64,7 +65,7 @@ bool js_gfx_Device_copyBuffersToTexture(se::State &s) { // NOLINT(readability-id
                             ok = obj->getTypedArrayData(&ptr, &dataLength);
                             SE_PRECONDITION2(ok, false, "getTypedArrayData failed!");
                         } else {
-                            assert(false);
+                            CC_ASSERT(false);
                         }
                     } else {
                         ptr = reinterpret_cast<uint8_t *>(value.asPtr()); // NOLINT(performance-no-int-to-ptr) script engine bad API design
@@ -90,12 +91,12 @@ bool js_gfx_Device_copyTextureToBuffers(se::State &s) { // NOLINT(readability-id
     auto *cobj = static_cast<cc::gfx::Device *>(s.nativeThisObject());
     SE_PRECONDITION2(cobj, false, "js_gfx_Device_copyBuffersToTexture : Invalid Native Object");
 
-    const auto &   args = s.args();
-    size_t         argc = args.size();
-    CC_UNUSED bool ok   = true;
+    const auto &args = s.args();
+    size_t argc = args.size();
+    CC_UNUSED bool ok = true;
     if (argc == 3) {
-        cc::gfx::Texture *             arg0 = nullptr;
-        cc::vector<uint8_t *>          arg1;
+        cc::gfx::Texture *arg0 = nullptr;
+        ccstd::vector<uint8_t *> arg1;
         cc::gfx::BufferTextureCopyList arg2;
         if (args[1].isObject()) {
             se::Object *dataObj = args[1].toObject();
@@ -107,7 +108,7 @@ bool js_gfx_Device_copyTextureToBuffers(se::State &s) { // NOLINT(readability-id
             se::Value value;
             for (uint32_t i = 0; i < length; ++i) {
                 if (dataObj->getArrayElement(i, &value)) {
-                    uint8_t *        ptr        = nullptr;
+                    uint8_t *ptr = nullptr;
                     CC_UNUSED size_t dataLength = 0;
                     if (value.isObject()) {
                         se::Object *obj = value.toObject();
@@ -118,7 +119,7 @@ bool js_gfx_Device_copyTextureToBuffers(se::State &s) { // NOLINT(readability-id
                             ok = obj->getTypedArrayData(&ptr, &dataLength);
                             SE_PRECONDITION2(ok, false, "getTypedArrayData failed!");
                         } else {
-                            assert(false);
+                            CC_ASSERT(false);
                         }
                     } else {
                         ptr = reinterpret_cast<uint8_t *>(value.asPtr()); // NOLINT(performance-no-int-to-ptr) script engine bad API design
@@ -144,14 +145,14 @@ bool js_gfx_Device_copyTexImagesToTexture(se::State &s) { // NOLINT(readability-
     auto *cobj = static_cast<cc::gfx::Device *>(s.nativeThisObject());
     SE_PRECONDITION2(cobj, false, "js_gfx_Device_copyBuffersToTexture : Invalid Native Object");
 
-    const auto &   args = s.args();
-    size_t         argc = args.size();
-    CC_UNUSED bool ok   = true;
+    const auto &args = s.args();
+    size_t argc = args.size();
+    CC_UNUSED bool ok = true;
     if (argc == 3) {
-        cc::gfx::BufferDataList        arg0;
-        cc::gfx::Texture *             arg1 = nullptr;
+        cc::gfx::BufferDataList arg0;
+        cc::gfx::Texture *arg1 = nullptr;
         cc::gfx::BufferTextureCopyList arg2;
-        CC_UNUSED size_t               dataLength = 0;
+        CC_UNUSED size_t dataLength = 0;
         if (args[0].isObject()) {
             se::Object *dataObj = args[0].toObject();
             SE_PRECONDITION2(dataObj->isArray(), false, "Buffers must be an array!");
@@ -163,11 +164,17 @@ bool js_gfx_Device_copyTexImagesToTexture(se::State &s) { // NOLINT(readability-
             for (uint32_t i = 0; i < length; ++i) {
                 if (dataObj->getArrayElement(i, &value)) {
                     if (value.isObject()) {
-                        uint8_t *address = nullptr;
-                        value.toObject()->getTypedArrayData(&address, &dataLength);
-                        arg0[i] = address;
+                        if (value.toObject()->isTypedArray()) {
+                            uint8_t *address = nullptr;
+                            value.toObject()->getTypedArrayData(&address, &dataLength);
+                            arg0[i] = address;
+                        } else {
+                            auto *dataHolder = static_cast<cc::JSBNativeDataHolder *>(value.toObject()->getPrivateData());
+                            uint8_t* data = dataHolder->getData();
+                            arg0[i] = data;
+                        }
                     } else {
-                        arg0[i] = reinterpret_cast<uint8_t *>(value.asPtr()); // NOLINT(performance-no-int-to-ptr) script engine bad API design
+                        CC_ASSERT(false);
                     }
                 }
             }
@@ -189,13 +196,13 @@ static bool js_gfx_Device_createBuffer(se::State &s) { // NOLINT(readability-ide
     auto *cobj = static_cast<cc::gfx::Device *>(s.nativeThisObject());
     SE_PRECONDITION2(cobj, false, "js_gfx_Device_createBuffer : Invalid Native Object");
     const auto &args = s.args();
-    size_t      argc = args.size();
+    size_t argc = args.size();
 
     if (argc == 2) {
         cc::gfx::Buffer *buffer = nullptr;
 
         bool createBufferView = false;
-        seval_to_boolean(args[1], &createBufferView);
+        sevalue_to_native(args[1], &createBufferView);
 
         if (createBufferView) {
             cc::gfx::BufferViewInfo bufferViewInfo;
@@ -206,9 +213,8 @@ static bool js_gfx_Device_createBuffer(se::State &s) { // NOLINT(readability-ide
             sevalue_to_native(args[0], &bufferInfo, s.thisObject());
             buffer = cobj->createBuffer(bufferInfo);
         }
-        se::NonRefNativePtrCreatedByCtorMap::emplace(buffer);
-
         CC_UNUSED bool ok = native_ptr_to_seval(buffer, &s.rval());
+        s.rval().toObject()->getPrivateObject()->tryAllowDestroyInGC();
         SE_PRECONDITION2(ok, false, "js_gfx_Device_createBuffer : Error processing arguments");
         return true;
     }
@@ -222,12 +228,12 @@ static bool js_gfx_Device_createTexture(se::State &s) { // NOLINT(readability-id
     auto *cobj = static_cast<cc::gfx::Device *>(s.nativeThisObject());
     SE_PRECONDITION2(cobj, false, "js_gfx_Device_createTexture : Invalid Native Object");
     const auto &args = s.args();
-    size_t      argc = args.size();
+    size_t argc = args.size();
 
     if (argc == 2) {
-        cc::gfx::Texture *texture           = nullptr;
-        bool              createTextureView = false;
-        seval_to_boolean(args[1], &createTextureView);
+        cc::gfx::Texture *texture = nullptr;
+        bool createTextureView = false;
+        sevalue_to_native(args[1], &createTextureView);
         if (createTextureView) {
             cc::gfx::TextureViewInfo textureViewInfo;
             sevalue_to_native(args[0], &textureViewInfo, s.thisObject());
@@ -237,9 +243,8 @@ static bool js_gfx_Device_createTexture(se::State &s) { // NOLINT(readability-id
             sevalue_to_native(args[0], &textureInfo, s.thisObject());
             texture = cobj->createTexture(textureInfo);
         }
-        se::NonRefNativePtrCreatedByCtorMap::emplace(texture);
-
         CC_UNUSED bool ok = native_ptr_to_seval(texture, &s.rval());
+        s.rval().toObject()->getPrivateObject()->tryAllowDestroyInGC();
         SE_PRECONDITION2(ok, false, "js_gfx_Device_createTexture : Error processing arguments");
         return true;
     }
@@ -250,15 +255,15 @@ static bool js_gfx_Device_createTexture(se::State &s) { // NOLINT(readability-id
 SE_BIND_FUNC(js_gfx_Device_createTexture)
 
 static bool js_gfx_Buffer_initialize(se::State &s) { // NOLINT(readability-identifier-naming)
-    CC_UNUSED bool ok   = true;
-    auto *         cobj = static_cast<cc::gfx::Buffer *>(s.nativeThisObject());
+    CC_UNUSED bool ok = true;
+    auto *cobj = static_cast<cc::gfx::Buffer *>(s.nativeThisObject());
     SE_PRECONDITION2(cobj, false, "js_gfx_Buffer_initialize : Invalid Native Object");
     const auto &args = s.args();
-    size_t      argc = args.size();
+    size_t argc = args.size();
 
     if (argc == 2) {
         bool initWithBufferViewInfo = false;
-        seval_to_boolean(args[1], &initWithBufferViewInfo);
+        sevalue_to_native(args[1], &initWithBufferViewInfo);
 
         if (initWithBufferViewInfo) {
             cc::gfx::BufferViewInfo bufferViewInfo;
@@ -270,7 +275,7 @@ static bool js_gfx_Buffer_initialize(se::State &s) { // NOLINT(readability-ident
             cobj->initialize(bufferInfo);
         }
 
-        ok &= boolean_to_seval(ok, &s.rval());
+        ok &= nativevalue_to_se(ok, s.rval());
         SE_PRECONDITION2(ok, false, "js_gfx_Buffer_initialize : Error processing arguments");
         return true;
     }
@@ -281,15 +286,15 @@ static bool js_gfx_Buffer_initialize(se::State &s) { // NOLINT(readability-ident
 SE_BIND_FUNC(js_gfx_Buffer_initialize)
 
 static bool js_gfx_Texture_initialize(se::State &s) { // NOLINT(readability-identifier-naming)
-    CC_UNUSED bool ok   = true;
-    auto *         cobj = static_cast<cc::gfx::Texture *>(s.nativeThisObject());
+    CC_UNUSED bool ok = true;
+    auto *cobj = static_cast<cc::gfx::Texture *>(s.nativeThisObject());
     SE_PRECONDITION2(cobj, false, "js_gfx_Texture_initialize : Invalid Native Object");
     const auto &args = s.args();
-    size_t      argc = args.size();
+    size_t argc = args.size();
 
     if (argc == 2) {
         bool initWithTextureViewInfo = false;
-        seval_to_boolean(args[1], &initWithTextureViewInfo);
+        sevalue_to_native(args[1], &initWithTextureViewInfo);
 
         if (initWithTextureViewInfo) {
             cc::gfx::TextureViewInfo textureViewInfo;
@@ -301,7 +306,7 @@ static bool js_gfx_Texture_initialize(se::State &s) { // NOLINT(readability-iden
             cobj->initialize(textureInfo);
         }
 
-        ok &= boolean_to_seval(ok, &s.rval());
+        ok &= nativevalue_to_se(ok, s.rval());
         SE_PRECONDITION2(ok, false, "js_gfx_Texture_initialize : Error processing arguments");
         return true;
     }
@@ -314,13 +319,13 @@ SE_BIND_FUNC(js_gfx_Texture_initialize)
 static bool js_gfx_GFXBuffer_update(se::State &s) { // NOLINT(readability-identifier-naming)
     auto *cobj = static_cast<cc::gfx::Buffer *>(s.nativeThisObject());
     SE_PRECONDITION2(cobj, false, "js_gfx_GFXBuffer_update : Invalid Native Object");
-    const auto &   args = s.args();
-    size_t         argc = args.size();
-    CC_UNUSED bool ok   = true;
+    const auto &args = s.args();
+    size_t argc = args.size();
+    CC_UNUSED bool ok = true;
 
-    uint8_t *        arg0       = nullptr;
+    uint8_t *arg0 = nullptr;
     CC_UNUSED size_t dataLength = 0;
-    se::Object *     obj        = args[0].toObject();
+    se::Object *obj = args[0].toObject();
     if (obj->isArrayBuffer()) {
         ok = obj->getArrayBufferData(&arg0, &dataLength);
         SE_PRECONDITION2(ok, false, "getArrayBufferData failed!");
@@ -333,12 +338,12 @@ static bool js_gfx_GFXBuffer_update(se::State &s) { // NOLINT(readability-identi
 
     if (argc == 1) {
         SE_PRECONDITION2(ok, false, "js_gfx_GFXBuffer_update : Error processing arguments");
-        cobj->update(arg0, static_cast<uint>(dataLength));
+        cobj->update(arg0, static_cast<uint32_t>(dataLength));
         return true;
     }
     if (argc == 2) {
         unsigned int arg1 = 0;
-        ok &= seval_to_uint32(args[1], &arg1);
+        ok &= sevalue_to_native(args[1], &arg1);
         SE_PRECONDITION2(ok, false, "js_gfx_GFXBuffer_update : Error processing arguments");
         cobj->update(arg0, arg1);
         return true;
@@ -351,16 +356,16 @@ SE_BIND_FUNC(js_gfx_GFXBuffer_update)
 static bool js_gfx_CommandBuffer_execute(se::State &s) { // NOLINT(readability-identifier-naming)
     auto *cobj = static_cast<cc::gfx::CommandBuffer *>(s.nativeThisObject());
     SE_PRECONDITION2(cobj, false, "js_gfx_CommandBuffer_execute : Invalid Native Object");
-    const auto &   args = s.args();
-    size_t         argc = args.size();
-    CC_UNUSED bool ok   = true;
+    const auto &args = s.args();
+    size_t argc = args.size();
+    CC_UNUSED bool ok = true;
     if (argc == 2) {
         cc::gfx::CommandBufferList cmdBufs;
-        unsigned int               count = 0;
-        ok &= seval_to_uint32(args[1], &count);
+        unsigned int count = 0;
+        ok &= sevalue_to_native(args[1], &count);
 
         se::Object *jsarr = args[0].toObject();
-        assert(jsarr->isArray());
+        CC_ASSERT(jsarr->isArray());
         uint32_t len = 0;
         ok &= jsarr->getArrayLength(&len);
         if (len < count) {
@@ -376,9 +381,8 @@ static bool js_gfx_CommandBuffer_execute(se::State &s) { // NOLINT(readability-i
                     cmdBufs.clear();
                     break;
                 }
-
                 auto *cmdBuf = static_cast<cc::gfx::CommandBuffer *>(tmp.toObject()->getPrivateData());
-                cmdBufs[i]   = cmdBuf;
+                cmdBufs[i] = cmdBuf;
             }
         }
 
@@ -395,17 +399,17 @@ static bool js_gfx_CommandBuffer_updateBuffer(se::State &s) { // NOLINT(readabil
     auto *cobj = static_cast<cc::gfx::CommandBuffer *>(s.nativeThisObject());
     SE_PRECONDITION2(cobj, false, "js_gfx_CommandBuffer_updateBuffer : Invalid Native Object");
 
-    const auto &   args = s.args();
-    size_t         argc = args.size();
-    CC_UNUSED bool ok   = true;
+    const auto &args = s.args();
+    size_t argc = args.size();
+    CC_UNUSED bool ok = true;
 
     cc::gfx::Buffer *arg0 = nullptr;
     SE_PRECONDITION2(args[0].isObject(), false, "js_gfx_CommandBuffer_updateBuffer : Invalid Native Object");
     arg0 = static_cast<cc::gfx::Buffer *>(args[0].toObject()->getPrivateData());
 
-    uint8_t *        arg1       = nullptr;
+    uint8_t *arg1 = nullptr;
     CC_UNUSED size_t dataLength = 0;
-    se::Object *     obj        = args[1].toObject();
+    se::Object *obj = args[1].toObject();
     if (obj->isArrayBuffer()) {
         ok = obj->getArrayBufferData(&arg1, &dataLength);
         SE_PRECONDITION2(ok, false, "getArrayBufferData failed!");
@@ -418,7 +422,7 @@ static bool js_gfx_CommandBuffer_updateBuffer(se::State &s) { // NOLINT(readabil
 
     if (argc == 2) {
         SE_PRECONDITION2(ok, false, "js_gfx_CommandBuffer_updateBuffer : Error processing arguments");
-        cobj->updateBuffer(arg0, arg1, static_cast<uint>(dataLength));
+        cobj->updateBuffer(arg0, arg1, static_cast<uint32_t>(dataLength));
         return true;
     }
 
@@ -431,12 +435,12 @@ static bool js_gfx_CommandBuffer_copyBuffersToTexture(se::State &s) { // NOLINT(
     auto *cobj = static_cast<cc::gfx::CommandBuffer *>(s.nativeThisObject());
     SE_PRECONDITION2(cobj, false, "js_gfx_CommandBuffer_copyBuffersToTexture : Invalid Native Object");
 
-    const auto &   args = s.args();
-    size_t         argc = args.size();
-    CC_UNUSED bool ok   = true;
+    const auto &args = s.args();
+    size_t argc = args.size();
+    CC_UNUSED bool ok = true;
     if (argc == 3) {
-        cc::gfx::BufferDataList        arg0;
-        cc::gfx::Texture *             arg1 = nullptr;
+        cc::gfx::BufferDataList arg0;
+        cc::gfx::Texture *arg1 = nullptr;
         cc::gfx::BufferTextureCopyList arg2;
         if (args[0].isObject()) {
             se::Object *dataObj = args[0].toObject();
@@ -448,9 +452,9 @@ static bool js_gfx_CommandBuffer_copyBuffersToTexture(se::State &s) { // NOLINT(
             se::Value value;
             for (uint32_t i = 0; i < length; ++i) {
                 if (dataObj->getArrayElement(i, &value)) {
-                    uint8_t *        ptr        = nullptr;
+                    uint8_t *ptr = nullptr;
                     CC_UNUSED size_t dataLength = 0;
-                    se::Object *     obj        = value.toObject();
+                    se::Object *obj = value.toObject();
                     if (obj->isArrayBuffer()) {
                         ok = obj->getArrayBufferData(&ptr, &dataLength);
                         SE_PRECONDITION2(ok, false, "getArrayBufferData failed!");
@@ -458,7 +462,7 @@ static bool js_gfx_CommandBuffer_copyBuffersToTexture(se::State &s) { // NOLINT(
                         ok = obj->getTypedArrayData(&ptr, &dataLength);
                         SE_PRECONDITION2(ok, false, "getTypedArrayData failed!");
                     } else {
-                        assert(false);
+                        CC_ASSERT(false);
                     }
                     arg0[i] = ptr;
                 }

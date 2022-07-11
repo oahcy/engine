@@ -28,7 +28,7 @@
 import { ccclass } from 'cc.decorator';
 
 import { EDITOR } from 'internal:constants';
-import { Renderable2D } from '../2d/framework/renderable-2d';
+import { UIRenderer } from '../2d/framework/ui-renderer';
 import { SpriteFrame } from '../2d/assets/sprite-frame';
 import { Component } from '../core/components';
 import { TMXMapInfo } from './tmx-xml-parser';
@@ -42,6 +42,7 @@ import {
 } from './tiled-types';
 import { fillTextureGrids } from './tiled-utils';
 import { NodeEventType } from '../core/scene-graph/node-event';
+import { legacyCC } from '../core/global-exports';
 
 const _mat4_temp = new Mat4();
 const _vec2_temp = new Vec2();
@@ -78,7 +79,7 @@ type TiledMeshDataArray = (TiledMeshData | TiledSubNodeData)[];
  * @extends Component
  */
 @ccclass('cc.TiledLayer')
-export class TiledLayer extends Renderable2D {
+export class TiledLayer extends UIRenderer {
     // [row][col] = {count: 0, nodesList: []};
     protected _userNodeGrid: { [key: number]: { count: number;[key: number]: { count: number, list: (TiledUserNodeData | null)[] } } } = {};
     protected _userNodeMap: { [key: string]: TiledUserNodeData } = {};// [id] = node;
@@ -840,7 +841,7 @@ export class TiledLayer extends Renderable2D {
     }
 
     public updateCulling () {
-        if (EDITOR) {
+        if (EDITOR && !legacyCC.GAME_VIEW) {
             this.enableCulling = false;
         } else if (this._enableCulling) {
             this.node.updateWorldTransform();

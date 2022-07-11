@@ -39,9 +39,9 @@
 namespace cc {
 
 CocosApplication::CocosApplication() {
-    _engine      = BaseEngine::createEngine();
-    _systemWidow = _engine->getInterface<ISystemWindow>();
-    CCASSERT(_systemWidow != nullptr, "Invalid interface pointer");
+    _engine = BaseEngine::createEngine();
+    _systemWindow = _engine->getInterface<ISystemWindow>();
+    CC_ASSERT(_systemWindow != nullptr);
 }
 
 CocosApplication::~CocosApplication() {
@@ -77,10 +77,10 @@ int CocosApplication::init() {
 
     se->start();
 
-#if (CC_PLATFORM == CC_PLATFORM_MAC_IOS)
-    auto     logicSize  = _systemWidow->getViewSize();
-    IScreen *screen     = _engine->getInterface<IScreen>();
-    float    pixelRatio = screen->getDevicePixelRatio();
+#if (CC_PLATFORM == CC_PLATFORM_IOS)
+    auto logicSize = _systemWindow->getViewSize();
+    IScreen *screen = _engine->getInterface<IScreen>();
+    float pixelRatio = screen->getDevicePixelRatio();
     cc::EventDispatcher::dispatchResizeEvent(logicSize.x * pixelRatio, logicSize.y * pixelRatio);
 #endif
     return 0;
@@ -103,9 +103,9 @@ void CocosApplication::resume() {
 void CocosApplication::restart() {
     _engine->restart();
 }
-
+// IMPORTANT!!The method `onClose` is a function to be listen close event, while `close` is a jsb binding method mean to close the whole application.
 void CocosApplication::close() {
-    _engine->close();
+    _systemWindow->closeWindow();
 }
 
 BaseEngine::Ptr CocosApplication::getEngine() const {
@@ -121,17 +121,15 @@ void CocosApplication::onResume() {
 }
 
 void CocosApplication::onClose() {
-    // TODO(cc): Handling close events
+    _engine->close();
 }
 
-void CocosApplication::setDebugIpAndPort(const std::string &serverAddr, uint32_t port, bool isWaitForConnect) {
-#if defined(CC_DEBUG) && (CC_DEBUG > 0)
+void CocosApplication::setDebugIpAndPort(const ccstd::string &serverAddr, uint32_t port, bool isWaitForConnect) {
     // Enable debugger here
     jsb_enable_debugger(serverAddr, port, isWaitForConnect);
-#endif
 }
 
-void CocosApplication::runScript(const std::string &filePath) {
+void CocosApplication::runScript(const ccstd::string &filePath) {
     jsb_run_script(filePath);
 }
 
@@ -140,19 +138,19 @@ void CocosApplication::handleException(const char *location, const char *message
     CC_LOG_ERROR("\nUncaught Exception:\n - location :  %s\n - msg : %s\n - detail : \n      %s\n", location, message, stack);
 }
 
-void CocosApplication::setXXTeaKey(const std::string &key) {
+void CocosApplication::setXXTeaKey(const ccstd::string &key) {
     jsb_set_xxtea_key(key);
 }
-#if CC_PLATFORM == CC_PLATFORM_WINDOWS || CC_PLATFORM == CC_PLATFORM_LINUX || CC_PLATFORM == CC_PLATFORM_QNX || CC_PLATFORM == CC_PLATFORM_MAC_OSX
+#if CC_PLATFORM == CC_PLATFORM_WINDOWS || CC_PLATFORM == CC_PLATFORM_LINUX || CC_PLATFORM == CC_PLATFORM_QNX || CC_PLATFORM == CC_PLATFORM_MACOS
 void CocosApplication::createWindow(const char *title, int32_t w,
                                     int32_t h, int32_t flags) {
-    _systemWidow->createWindow(title, w, h, flags);
+    _systemWindow->createWindow(title, w, h, flags);
 }
 
 void CocosApplication::createWindow(const char *title,
                                     int32_t x, int32_t y, int32_t w,
                                     int32_t h, int32_t flags) {
-    _systemWidow->createWindow(title, x, y, w, h, flags);
+    _systemWindow->createWindow(title, x, y, w, h, flags);
 }
 #endif
 
