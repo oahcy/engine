@@ -82,6 +82,6 @@ jobs:
 
           RES_DIR=$GITHUB_WORKSPACE/templates/linux/build-linux
           cd build-linux
-          cmake ../ -GNinja -DRES_DIR=$RES_DIR -DCOCOS_X_PATH=$NATIVE_ROOT . "-DCMAKE_TOOLCHAIN_FILE=$GITHUB_WORKSPACE/vcpkg/scripts/buildsystems/vcpkg.cmake"
+          cmake ../ -GNinja -DRES_DIR=$RES_DIR -DCOCOS_X_PATH=$NATIVE_ROOT -DOPENAL_PLAIN_INCLUDES=1 . "-DCMAKE_TOOLCHAIN_FILE=$GITHUB_WORKSPACE/vcpkg/scripts/buildsystems/vcpkg.cmake"
           set +e
           cmake --build . 
