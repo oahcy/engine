@@ -17,8 +17,7 @@ jobs:
       - uses: actions/checkout@v2
       - name: install vcpkg
         run: |
-          cd $GITHUB_WORKSPACE
-          git clone https://github.com/microsoft/vcpkg && pwd
+          cd $GITHUB_WORKSPACE && git clone https://github.com/microsoft/vcpkg && pwd
           ./vcpkg/bootstrap-vcpkg.bat
       - name: install third parts
         run: |
