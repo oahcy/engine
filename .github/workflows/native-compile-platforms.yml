@@ -39,6 +39,10 @@ jobs:
           ./vcpkg/vcpkg install libwebsockets:x64-windows
           ./vcpkg/vcpkg install glslang:x64-windows
           ./vcpkg/vcpkg install tbb:x64-windows
+      - name: vcpkg integrate
+        run: |
+          cd $GITHUB_WORKSPACE
+          ./vcpkg/vcpkg integrate install
       - name: Download external libraries
         shell: bash
         run: |
@@ -95,6 +99,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - name: install vcpkg
+        run: |
+          cd $GITHUB_WORKSPACE
+          git clone https://github.com/microsoft/vcpkg
+          ./vcpkg/bootstrap-vcpkg.bat
+      - name: install third parts
+        run: |
+          cd $GITHUB_WORKSPACE
+          ./vcpkg/vcpkg install libwebp:x64-windows
+          ./vcpkg/vcpkg install sdl2:x64-windows
+          ./vcpkg/vcpkg install openssl:x64-windows
+          ./vcpkg/vcpkg install freetype:x64-windows
+          ./vcpkg/vcpkg install libjpeg-turbo[jpeg8]:x64-windows
+          ./vcpkg/vcpkg install libogg:x64-windows
+          ./vcpkg/vcpkg install mpg123:x64-windows
+          ./vcpkg/vcpkg install libpng:x64-windows
+          ./vcpkg/vcpkg install libuv:x64-windows
+          ./vcpkg/vcpkg install libvorbis:x64-windows
+          ./vcpkg/vcpkg install openal-soft:x64-windows
+          ./vcpkg/vcpkg install sqlite3:x64-windows
+          ./vcpkg/vcpkg install zlib:x64-windows
+          ./vcpkg/vcpkg install libwebsockets:x64-windows
+          ./vcpkg/vcpkg install glslang:x64-windows
+          ./vcpkg/vcpkg install tbb:x64-windows
       - name: Download external libraries
         shell: bash
         run: |
