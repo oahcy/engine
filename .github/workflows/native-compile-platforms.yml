@@ -18,7 +18,7 @@ jobs:
       - name: install vcpkg
         run: |
           cd $GITHUB_WORKSPACE
-          git clone https://github.com/microsoft/vcpkg
+          git clone https://github.com/microsoft/vcpkg && pwd
           ./vcpkg/bootstrap-vcpkg.bat
       - name: install third parts
         run: |
