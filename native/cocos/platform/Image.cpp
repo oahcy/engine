@@ -32,7 +32,7 @@
 #include "base/std/container/string.h"
 
 #if CC_USE_JPEG
-    #include "jpeg/jpeglib.h"
+    #include "jpeglib.h"
 #endif // CC_USE_JPEG
 
 #include "base/Data.h"
@@ -42,11 +42,7 @@
 
 extern "C" {
 #if CC_USE_PNG
-    #if __OHOS__ || __LINUX__ || __QNX__
-        #include "png.h"
-    #else
-        #include "png/png.h"
-    #endif
+    #include "png.h"
 #endif //CC_USE_PNG
 
 #include "base/etc1.h"
