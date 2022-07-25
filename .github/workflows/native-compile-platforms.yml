@@ -103,7 +103,7 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE
           git clone https://github.com/microsoft/vcpkg
-          ./vcpkg/bootstrap-vcpkg.bat
+          ./vcpkg/bootstrap-vcpkg.sh
       - name: install third parts
         run: |
           cd $GITHUB_WORKSPACE

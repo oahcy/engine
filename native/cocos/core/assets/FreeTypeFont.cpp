@@ -27,7 +27,7 @@
 ****************************************************************************/
 
 #include "FreeTypeFont.h"
-#include <freetype/ft2build.h>
+#include <ft2build.h>
 #include FT_FREETYPE_H
 #include <cstdint>
 #include "base/Log.h"
