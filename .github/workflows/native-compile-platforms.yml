@@ -123,7 +123,6 @@ jobs:
           ./vcpkg/vcpkg install zlib:arm64-android
           ./vcpkg/vcpkg install libwebsockets:arm64-android
           ./vcpkg/vcpkg install glslang:arm64-android
-          ./vcpkg/vcpkg install tbb:arm64-android
       - name: Download external libraries
         shell: bash
         run: |
