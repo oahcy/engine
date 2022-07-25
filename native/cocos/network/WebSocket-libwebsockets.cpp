@@ -36,11 +36,8 @@
 #include "uv.h"
 // clang-format on
 
-#if __OHOS__ || __LINUX__ || __QNX__
-    #include "libwebsockets.h"
-#else
-    #include "websockets/libwebsockets.h"
-#endif
+#include "libwebsockets.h"
+
 
 #include <algorithm>
 #include <atomic>
