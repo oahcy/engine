@@ -23,6 +23,7 @@ jobs:
       - name: install third parts
         run: |
           cd $GITHUB_WORKSPACE
+          ./vcpkg/vcpkg install curl:x64-linux
           ./vcpkg/vcpkg install libwebp:x64-linux
           ./vcpkg/vcpkg install sdl2:x64-linux
           ./vcpkg/vcpkg install openssl:x64-linux

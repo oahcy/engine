@@ -107,22 +107,23 @@ jobs:
       - name: install third parts
         run: |
           cd $GITHUB_WORKSPACE
-          ./vcpkg/vcpkg install libwebp:x64-windows
-          ./vcpkg/vcpkg install sdl2:x64-windows
-          ./vcpkg/vcpkg install openssl:x64-windows
-          ./vcpkg/vcpkg install freetype:x64-windows
-          ./vcpkg/vcpkg install libjpeg-turbo[jpeg8]:x64-windows
-          ./vcpkg/vcpkg install libogg:x64-windows
-          ./vcpkg/vcpkg install mpg123:x64-windows
-          ./vcpkg/vcpkg install libpng:x64-windows
-          ./vcpkg/vcpkg install libuv:x64-windows
-          ./vcpkg/vcpkg install libvorbis:x64-windows
-          ./vcpkg/vcpkg install openal-soft:x64-windows
-          ./vcpkg/vcpkg install sqlite3:x64-windows
-          ./vcpkg/vcpkg install zlib:x64-windows
-          ./vcpkg/vcpkg install libwebsockets:x64-windows
-          ./vcpkg/vcpkg install glslang:x64-windows
-          ./vcpkg/vcpkg install tbb:x64-windows
+          ./vcpkg/vcpkg install curl:arm64-android
+          ./vcpkg/vcpkg install libwebp:arm64-android
+          ./vcpkg/vcpkg install sdl2:arm64-android
+          ./vcpkg/vcpkg install openssl:arm64-android
+          ./vcpkg/vcpkg install freetype:arm64-android
+          ./vcpkg/vcpkg install libjpeg-turbo[jpeg8]:arm64-android
+          ./vcpkg/vcpkg install libogg:arm64-android
+          ./vcpkg/vcpkg install mpg123:arm64-android
+          ./vcpkg/vcpkg install libpng:arm64-android
+          ./vcpkg/vcpkg install libuv:arm64-android
+          ./vcpkg/vcpkg install libvorbis:arm64-android
+          ./vcpkg/vcpkg install openal-soft:arm64-android
+          ./vcpkg/vcpkg install sqlite3:arm64-android
+          ./vcpkg/vcpkg install zlib:arm64-android
+          ./vcpkg/vcpkg install libwebsockets:arm64-android
+          ./vcpkg/vcpkg install glslang:arm64-android
+          ./vcpkg/vcpkg install tbb:arm64-android
       - name: Download external libraries
         shell: bash
         run: |
