@@ -39,11 +39,7 @@
 #include "base/std/container/unordered_map.h"
 #include "uv.h"
 
-#if CC_PLATFORM == CC_PLATFORM_OHOS
-    #include "libwebsockets.h"
-#else
-    #include "websockets/libwebsockets.h"
-#endif
+#include "libwebsockets.h"
 
 namespace cc {
 namespace network {
