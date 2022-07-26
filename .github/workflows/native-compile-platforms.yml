@@ -22,6 +22,7 @@ jobs:
       - name: install third parts
         run: |
           cd ${{github.workspace}}
+          ./vcpkg/vcpkg install curl:x64-windows
           ./vcpkg/vcpkg install libwebp:x64-windows
           ./vcpkg/vcpkg install sdl2:x64-windows
           ./vcpkg/vcpkg install openssl:x64-windows
