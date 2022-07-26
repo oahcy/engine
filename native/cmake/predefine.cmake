@@ -92,6 +92,7 @@ add_definitions(-DCC_PLATFORM_QNX=${CC_PLATFORM_QNX})
 add_definitions(-DCC_PLATFORM_NX=${CC_PLATFORM_NX})
 add_definitions(-DCC_PLATFORM_EMSCRIPTEN=${CC_PLATFORM_EMSCRIPTEN})
 add_definitions(-DCC_PLATFORM=${CC_PLATFORM})
+add_definitions(-DOPENAL_PLAIN_INCLUDES=1)
 
 include_directories(${CMAKE_CURRENT_LIST_DIR}/../external/sources)
 
