@@ -122,7 +122,7 @@ napi_status Class::inherit(napi_env env, napi_value subclass, napi_value superPr
     napi_value global, objectClass, setProto;
     napi_value argv[2];
     napi_value callbackResult = nullptr;
-	
+
     napi_get_global(env, &global);
     napi_status status = napi_get_named_property(env, global, "Object", &objectClass);
     if (status != napi_ok) {

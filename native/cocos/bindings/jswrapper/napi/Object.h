@@ -88,6 +88,7 @@ public:
         }
     }
     void deleteRef() {
+        assert(_refCounts == 0);
         _refCounts = 0;
         if (!_ref) {
             return;
