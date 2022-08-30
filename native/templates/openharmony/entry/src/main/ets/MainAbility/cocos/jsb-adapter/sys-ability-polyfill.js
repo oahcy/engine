@@ -1,4 +1,5 @@
 import display from '@ohos.display';
+import webSocket from '@ohos.net.webSocket';
 
 window.oh = {};
 
@@ -6,6 +7,9 @@ module.exports = function systemReady () {
     return new Promise(resolve => {
         if (typeof XMLHttpRequest === 'undefined') {
             window.XMLHttpRequest = function () {}
+        }
+        if (typeof WebSocket === 'undefined') {
+            window.oh.WebSocket = webSocket;
         }
         display.getDefaultDisplay((err, data) => {
             window.oh.display = data;
