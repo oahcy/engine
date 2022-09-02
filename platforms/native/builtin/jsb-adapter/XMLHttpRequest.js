@@ -9,10 +9,14 @@ if (window.oh) {
             this._password = null;
             this.onreadystatechange = null;
             this._readyState = XMLHttpRequest.UNSENT;
-            this._httpRequest = http.createHttp();
+            this._httpRequest = ohHttp.createHttp();
             this._responseText = "";
+            this._requestHeader = {};
+            this._status = 0;
+            this._contentLength = 0;
+            this._recvLength = 0;
 
-            this._httpRequest.on('headersReceive', (header) => {this._headersReceive(header)});
+            this._httpRequest.on('headersReceive', (function(header) {this._headersReceive(header)}).bind(this));
         }
 
         open(method, url, ...args) {
@@ -27,20 +31,40 @@ if (window.oh) {
             if (args.length == 3) {
                 this._password = args[2];
             }
-
+            this._status = 0;
+            this._contentLength = 0;
+            this._recvLength = 0;
             this._readyState = XMLHttpRequest.OPENED;
         }
 
         send(body) {
-            this._httpRequest.request(this._url, (err, data) => {this._requestCallback(err, data)});
+            if (this._method == "GET") {
+                this._httpRequest.request(this._url, {header : this._requestHeader, method : ohHttp.RequestMethod.GET}, (err, data) => {this._requestCallback(err, data)});
+            } else if (this._method == "POST") {
+                this._httpRequest.request(this._url, {header : this._requestHeader, method : ohHttp.RequestMethod.POST, extraData : {"data" : body}}, (err, data) => {this._requestCallback(err, data)});
+            }
+        }
+
+        setRequestHeader(header, value) {
+            if (header in this._requestHeader) {
+                this._requestHeader[header] += (', ' + value);
+            } else {
+                this._requestHeader[header] = value;
+            }
         }
 
         _requestCallback(err, data) {
             if (err) {
                 this._readyState = XMLHttpRequest.UNSENT;
+                return;
             }
             this._readyState = XMLHttpRequest.LOADING;
             this._responseText = data.result;
+            this._recvLength += parseInt(data.header['content-length']);
+            if (this._recvLength == this._contentLength) {
+                this._readyState = XMLHttpRequest.DONE;
+            }
+            this._status = data.responseCode;
             if (typeof this.onreadystatechange === 'function') {
                 this.onreadystatechange();
             }
@@ -48,13 +72,14 @@ if (window.oh) {
 
         _headersReceive(header) {
             this._readyState = XMLHttpRequest.HEADERS_RECEIVED;
+            this._contentLength = parseInt(header['content-length']);
         }
     }
 
     class XMLHttpRequest {
         constructor() {
             this._xmlHttpRequest = new XMLHttpRequestAdapter();
-            this.onreadystatechange = () => {this.onreadystatechange};
+            this._xmlHttpRequest.onreadystatechange = (function() {this.onreadystatechange()}).bind(this);
         }
 
         open(method, url, ...args) {
@@ -65,8 +90,23 @@ if (window.oh) {
             this._xmlHttpRequest.send(body);
         }
 
-        onreadystatechange() {
+        setRequestHeader(header, value) {
+            this._xmlHttpRequest.setRequestHeader(header, value);
+        }
 
+        onreadystatechange() {
+        }
+
+        get responseText() {
+            return this._xmlHttpRequest._responseText;
+        }
+
+        get readyState() {
+            return this._xmlHttpRequest._readyState;
+        }
+
+        get status() {
+            return this._xmlHttpRequest._status;
         }
     }
 
