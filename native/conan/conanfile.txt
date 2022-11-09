@@ -20,6 +20,7 @@ freetype/2.12.1
 [options]
 *:fPIC=True
 freetype:with_brotli=False
+freetype:with_bzip2=False
 
 [generators]
 cmake
