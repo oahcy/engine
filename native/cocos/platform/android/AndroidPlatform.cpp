@@ -84,6 +84,24 @@ struct InputAction {
     int32_t actionCode{-1};
 };
 
+struct InputControllerAction {
+    uint32_t buttonMask{0};
+    cc::StickKeyCode actionCode{StickKeyCode::UNDEFINE};
+};
+
+static const InputControllerAction PADDLEBOAT_CONTROLLER_ACTIONS[] = {
+        {PADDLEBOAT_BUTTON_A, cc::StickKeyCode::A},
+        {PADDLEBOAT_BUTTON_B, cc::StickKeyCode::B},
+        {PADDLEBOAT_BUTTON_X, cc::StickKeyCode::X},
+        {PADDLEBOAT_BUTTON_Y, cc::StickKeyCode::Y},
+        {PADDLEBOAT_BUTTON_L1, cc::StickKeyCode::L1},
+        {PADDLEBOAT_BUTTON_R1, cc::StickKeyCode::R1},
+        {PADDLEBOAT_BUTTON_L3, cc::StickKeyCode::L3},
+        {PADDLEBOAT_BUTTON_R3, cc::StickKeyCode::R3},
+        {PADDLEBOAT_BUTTON_START, cc::StickKeyCode::MINUS},
+        {PADDLEBOAT_BUTTON_SELECT, cc::StickKeyCode::PLUS}
+};
+
 static const InputAction PADDLEBOAT_ACTIONS[INPUT_ACTION_COUNT] = {
     {PADDLEBOAT_BUTTON_A, static_cast<int>(KeyCode::ENTER)},
     {PADDLEBOAT_BUTTON_B, static_cast<int>(KeyCode::ESCAPE)},
@@ -190,6 +208,53 @@ public:
         }
     }
 
+    std::unique_ptr<ControllerEvent> getControllerEvent(int32_t gameControllerIndex, \
+    Paddleboat_Controller_Data* controllerData) {
+        std::unique_ptr<ControllerEvent> eventList = std::make_unique<ControllerEvent>();
+
+        std::unique_ptr<cc::ControllerInfo> controllerPtr = std::make_unique<cc::ControllerInfo>();
+        controllerPtr->napdId                             = gameControllerIndex;
+
+        //get button info
+        std::vector<cc::ControllerInfo::ButtonInfo> buttonInfos;
+        std::vector<cc::ControllerInfo::AxisInfo> axisInfos;
+
+        for (auto const& inputAction : PADDLEBOAT_CONTROLLER_ACTIONS) {
+            if (controllerData->buttonsDown & inputAction.buttonMask) {
+                buttonInfos.push_back(cc::ControllerInfo::ButtonInfo(inputAction.actionCode, true));
+            } else {
+                buttonInfos.push_back(cc::ControllerInfo::ButtonInfo(inputAction.actionCode, false));
+            }
+        }
+
+        //convert button to axis
+        axisInfos.push_back(cc::ControllerInfo::AxisInfo(cc::StickAxisCode::X, controllerData->buttonsDown & PADDLEBOAT_BUTTON_DPAD_LEFT? -1.0f : 0.f));
+        axisInfos.push_back(cc::ControllerInfo::AxisInfo(cc::StickAxisCode::X, controllerData->buttonsDown & PADDLEBOAT_BUTTON_DPAD_RIGHT? 1.0f : 0.f));
+        axisInfos.push_back(cc::ControllerInfo::AxisInfo(cc::StickAxisCode::Y, controllerData->buttonsDown & PADDLEBOAT_BUTTON_DPAD_DOWN ? -1.0f : 0.f));
+        axisInfos.push_back(cc::ControllerInfo::AxisInfo(cc::StickAxisCode::Y, controllerData->buttonsDown & PADDLEBOAT_BUTTON_DPAD_UP? 1.0f : 0.f));
+
+
+        axisInfos.push_back(cc::ControllerInfo::AxisInfo(cc::StickAxisCode::L2, \
+                (controllerData->buttonsDown & PADDLEBOAT_BUTTON_L2) ? 1.0f : 0.f));
+        axisInfos.push_back(cc::ControllerInfo::AxisInfo(cc::StickAxisCode::R2, \
+                (controllerData->buttonsDown & PADDLEBOAT_BUTTON_R2) ? 1.0f : 0.f));
+
+        //get axis info
+        axisInfos.push_back(cc::ControllerInfo::AxisInfo(cc::StickAxisCode::LEFT_STICK_X, controllerData->leftStick.stickX));
+        axisInfos.push_back(cc::ControllerInfo::AxisInfo(cc::StickAxisCode::LEFT_STICK_Y, controllerData->leftStick.stickY));
+        axisInfos.push_back(cc::ControllerInfo::AxisInfo(cc::StickAxisCode::RIGHT_STICK_X, controllerData->rightStick.stickX));
+        axisInfos.push_back(cc::ControllerInfo::AxisInfo(cc::StickAxisCode::RIGHT_STICK_Y, controllerData->rightStick.stickY));
+
+        controllerPtr->buttonInfos                        = std::move(buttonInfos);
+        controllerPtr->axisInfos                          = std::move(axisInfos);
+
+        if (controllerPtr->buttonInfos.empty() && controllerPtr->axisInfos.empty()) {
+            return nullptr;
+        }
+        eventList->controllerInfos.push_back(std::move(controllerPtr));
+        return eventList;
+    }
+
     bool cookGameControllerEvent(const int32_t gameControllerIndex) {
         int addedControllerEvent = 0;
         if (gameControllerIndex >= 0) {
@@ -207,6 +272,8 @@ public:
                     }
                 }
 
+                auto controllerEvent = getControllerEvent(gameControllerIndex, &controllerData);
+                _androidPlatform->dispatchEvent(*controllerEvent);
                 // Update our prev variable so we can detect delta changes from down to up
                 prevButtonsDown = controllerData.buttonsDown;
             }
