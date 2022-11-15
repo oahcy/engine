@@ -275,7 +275,7 @@ public:
                 }
 
                 auto controllerEvent = getControllerEvent(gameControllerIndex, &controllerData);
-                _androidPlatform->dispatchEvent(*controllerEvent);
+                events::Keyboard::broadcast(*controllerEvent);
                 // Update our prev variable so we can detect delta changes from down to up
                 prevButtonsDown = controllerData.buttonsDown;
             }
