@@ -32,6 +32,7 @@
 #include "modules/Network.h"
 #include "modules/System.h"
 #include "modules/Vibrator.h"
+#include "platform/apple/GameController.h"
 
 #if defined(CC_SERVER_MODE)
     #include "platform/empty/modules/Screen.h"
@@ -98,6 +99,7 @@ extern int cocos_main(int argc, const char **argv);
 
 namespace {
 MyTimer *_timer;
+GameController* _gameController;
 }
 
 namespace cc {
@@ -108,6 +110,7 @@ MacPlatform::~MacPlatform() {
 
 int32_t MacPlatform::init() {
     _timer = [[MyTimer alloc] initWithApp:this fps:60];
+    _gameController = [[GameController  alloc] init];
     registerInterface(std::make_shared<Accelerometer>());
     registerInterface(std::make_shared<Battery>());
     registerInterface(std::make_shared<Network>());
