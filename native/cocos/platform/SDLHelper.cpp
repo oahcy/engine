@@ -33,6 +33,26 @@
 #include "platform/interfaces/modules/ISystemWindowManager.h"
 
 namespace {
+#define JOY_AXIS_LEFT_X 0
+#define JOY_AXIS_LEFT_Y 1
+#define JOY_AXIS_RIGHT_X 3
+#define JOY_AXIS_RIGHT_Y 4
+#define JOY_AXIS_LEFT_TRIGER 2
+#define JOY_AXIS_RIGHT_TRIGER 5
+
+std::unordered_map<int, cc::StickKeyCode> gStickKeyMap = {
+    {0, cc::StickKeyCode::A},
+    {1, cc::StickKeyCode::B},
+    {2, cc::StickKeyCode::X},
+    {3, cc::StickKeyCode::Y},
+    {4, cc::StickKeyCode::L1},
+    {5, cc::StickKeyCode::R1},
+    {8, cc::StickKeyCode::L3},
+    {9, cc::StickKeyCode::R3},
+    {6, cc::StickKeyCode::MINUS},
+    {7, cc::StickKeyCode::PLUS},
+};
+
 std::unordered_map<int, cc::KeyCode> gKeyMap = {
     {SDLK_APPLICATION, cc::KeyCode::CONTEXT_MENU},
     {SDLK_SCROLLLOCK, cc::KeyCode::SCROLLLOCK},
@@ -145,6 +165,10 @@ int windowFlagsToSDLWindowFlag(int flags) {
 } // namespace
 
 namespace cc {
+
+SDL_Joystick* SDLHelper::_joy = nullptr;
+int SDLHelper::_joyCounts = 0;
+    
 SDLHelper::SDLHelper() {}
 
 SDLHelper::~SDLHelper() {
@@ -232,6 +256,26 @@ void SDLHelper::dispatchSDLEvent(uint32_t windowId, const SDL_Event &sdlEvent, b
             events::WindowEvent::broadcast(ev);
             break;
         }
+        case SDL_JOYBUTTONDOWN:
+        case SDL_JOYBUTTONUP:
+        case SDL_JOYAXISMOTION:
+        case SDL_JOYBALLMOTION:
+        case SDL_JOYHATMOTION:
+            dispatchJoystickEvent(sdlEvent);
+            break;
+        case SDL_JOYDEVICEADDED:
+            //just use first joy
+            if (0 == _joyCounts) {
+                initJoy();
+            }
+            _joyCounts++;
+            break;
+        case SDL_JOYDEVICEREMOVED:    /**< Joystick axis motion */
+            _joyCounts--;
+            if (_joyCounts == 0) {
+                releaseJoy();
+            }
+            break;
         case SDL_WINDOWEVENT: {
             dispatchWindowEvent(windowId, sdlEvent.window);
             break;
@@ -383,6 +427,111 @@ uintptr_t SDLHelper::getWindowHandle(SDL_Window *window) {
 #endif
     CC_ASSERT(false);
     return 0;
+}
+
+bool SDLHelper::initJoy() {
+    // Check for joystick
+    if (_joy) {
+        CC_LOG_INFO("has init");
+        return false;
+    }
+    if (SDL_NumJoysticks() > 0) {
+        // Open joystick
+        _joy = SDL_JoystickOpen(0);
+
+        if (_joy) {
+            SDL_JoystickEventState(SDL_ENABLE);
+            CC_LOG_INFO("Opened Joystick 0");
+            CC_LOG_INFO("Name: %s", SDL_JoystickName(0));
+            CC_LOG_INFO("Number of Axes: %d", SDL_JoystickNumAxes(_joy));
+            CC_LOG_INFO("Number of Buttons: %d", SDL_JoystickNumButtons(_joy));
+            CC_LOG_INFO("Number of Balls: %d", SDL_JoystickNumBalls(_joy));
+        } else
+            printf("Couldn't open Joystick 0\n");
+        return true;
+    }
+}
+
+void SDLHelper::releaseJoy() {
+    if (_joy) {
+        SDL_JoystickClose(_joy);
+        _joy = nullptr;
+    }
+}
+
+void SDLHelper::dispatchJoystickEvent(const SDL_Event &sdlEvent) {
+    ControllerEvent ev;
+    int napdId = 0;
+    std::unique_ptr<ControllerInfo> controllerInfo = std::make_unique<ControllerInfo>();
+    std::unordered_map<int, cc::StickKeyCode>::iterator iter;
+    auto &jbutton = sdlEvent.jbutton;
+    auto &jaxis = sdlEvent.jaxis;
+    auto &jhat = sdlEvent.jhat;
+    float value = 0;
+    switch (sdlEvent.type) {
+        case SDL_JOYBUTTONDOWN:
+        case SDL_JOYBUTTONUP:
+            CC_LOG_DEBUG("SDL_JOYBUTTON");
+            iter = gStickKeyMap.find(jbutton.button);
+            if (iter != gStickKeyMap.end()) {
+                controllerInfo->buttonInfos.push_back(ControllerInfo::ButtonInfo(iter->second, jbutton.type == SDL_JOYBUTTONDOWN));
+            }
+            napdId = sdlEvent.jbutton.which;
+            break;
+        case SDL_JOYAXISMOTION:
+            // igore small value
+                value = jaxis.value;
+                //convert range to -1~1
+                value = (value > 0) ? value / 0x7fff : value / 0x8000;
+                if (jaxis.axis == JOY_AXIS_LEFT_X) {
+                    controllerInfo->axisInfos.push_back(ControllerInfo::AxisInfo(cc::StickAxisCode::LEFT_STICK_X, value));
+                } else if (jaxis.axis == JOY_AXIS_LEFT_Y) {
+                    controllerInfo->axisInfos.push_back(ControllerInfo::AxisInfo(cc::StickAxisCode::LEFT_STICK_Y, -value));
+                } else if (jaxis.axis == JOY_AXIS_RIGHT_X) {
+                    controllerInfo->axisInfos.push_back(ControllerInfo::AxisInfo(cc::StickAxisCode::RIGHT_STICK_X, value));
+                } else if (jaxis.axis == JOY_AXIS_RIGHT_Y) {
+                    controllerInfo->axisInfos.push_back(ControllerInfo::AxisInfo(cc::StickAxisCode::RIGHT_STICK_Y, -value));
+                } else if (jaxis.axis == JOY_AXIS_LEFT_TRIGER) {
+                    controllerInfo->axisInfos.push_back(ControllerInfo::AxisInfo(cc::StickAxisCode::L2, value));
+                } else if (jaxis.axis == JOY_AXIS_RIGHT_TRIGER) {
+                    controllerInfo->axisInfos.push_back(ControllerInfo::AxisInfo(cc::StickAxisCode::R2, value));
+                }
+            CC_LOG_DEBUG("SDL_JOYAXISMOTION index:%d, value:%d", jaxis.axis, jaxis.value);
+            napdId = sdlEvent.jaxis.which;
+            break;
+        case SDL_JOYBALLMOTION:
+            //not use it
+            CC_LOG_DEBUG("SDL_JOYBALLMOTION");
+            break;
+        case SDL_JOYHATMOTION:
+            if (jhat.value == SDL_HAT_CENTERED) {
+                controllerInfo->axisInfos.push_back(ControllerInfo::AxisInfo(cc::StickAxisCode::X, 0));
+                controllerInfo->axisInfos.push_back(ControllerInfo::AxisInfo(cc::StickAxisCode::Y, 0));
+            } else {
+                if (jhat.value & SDL_HAT_UP) {
+                    controllerInfo->axisInfos.push_back(ControllerInfo::AxisInfo(cc::StickAxisCode::Y, 1.0f));
+                }
+                if (jhat.value & SDL_HAT_RIGHT) {
+                    controllerInfo->axisInfos.push_back(ControllerInfo::AxisInfo(cc::StickAxisCode::X, 1.0f));
+                }
+                if (jhat.value & SDL_HAT_DOWN) {
+                    controllerInfo->axisInfos.push_back(ControllerInfo::AxisInfo(cc::StickAxisCode::Y, -1.0f));
+                }
+                if (jhat.value & SDL_HAT_LEFT) {
+                    controllerInfo->axisInfos.push_back(ControllerInfo::AxisInfo(cc::StickAxisCode::X, -1.0f));
+                }
+            }
+            CC_LOG_DEBUG("SDL_JOYHATMOTION hat:%d, value:%d", jhat.hat, jhat.value);
+            napdId = sdlEvent.jhat.which;
+            break;
+        default:
+            CC_LOG_ERROR("unknow joystick Event");
+    }
+    controllerInfo->napdId = napdId;
+    if ((controllerInfo->axisInfos.size() > 0) || (controllerInfo->buttonInfos.size() > 0)) {
+        ev.controllerInfos.push_back(std::move(controllerInfo));
+        events::Controller::broadcast(ev);
+    }
 }
 
 } // namespace cc

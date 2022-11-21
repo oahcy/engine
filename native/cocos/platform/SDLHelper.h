@@ -26,6 +26,7 @@
 #pragma once
 #include <iostream>
 #include "engine/EngineEvents.h"
+#include "SDL2/SDL_joystick.h"
 
 struct SDL_Window;
 union SDL_Event;
@@ -58,5 +59,11 @@ public:
 private:
     static void dispatchSDLEvent( uint32_t windowId, const SDL_Event& sdlEvent, bool* quit);
     static void dispatchWindowEvent(uint32_t windowId, const SDL_WindowEvent& wevent);
+    static bool initJoy();
+    static void releaseJoy();
+    static void dispatchJoystickEvent(const SDL_Event& sdlEvent);
+
+    static SDL_Joystick* _joy;
+    static int _joyCounts;
 };
 } // namespace cc
