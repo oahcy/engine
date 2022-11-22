@@ -100,8 +100,8 @@ static const InputControllerAction PADDLEBOAT_CONTROLLER_ACTIONS[] = {
         {PADDLEBOAT_BUTTON_R1, cc::StickKeyCode::R1},
         {PADDLEBOAT_BUTTON_L3, cc::StickKeyCode::L3},
         {PADDLEBOAT_BUTTON_R3, cc::StickKeyCode::R3},
-        {PADDLEBOAT_BUTTON_START, cc::StickKeyCode::MINUS},
-        {PADDLEBOAT_BUTTON_SELECT, cc::StickKeyCode::PLUS}
+        {PADDLEBOAT_BUTTON_START, cc::StickKeyCode::PLUS},
+        {PADDLEBOAT_BUTTON_SELECT, cc::StickKeyCode::MINUS}
 };
 
 static const InputAction PADDLEBOAT_ACTIONS[INPUT_ACTION_COUNT] = {
@@ -243,9 +243,9 @@ public:
 
         //get axis info
         axisInfos.push_back(cc::ControllerInfo::AxisInfo(cc::StickAxisCode::LEFT_STICK_X, controllerData->leftStick.stickX));
-        axisInfos.push_back(cc::ControllerInfo::AxisInfo(cc::StickAxisCode::LEFT_STICK_Y, controllerData->leftStick.stickY));
+        axisInfos.push_back(cc::ControllerInfo::AxisInfo(cc::StickAxisCode::LEFT_STICK_Y, -controllerData->leftStick.stickY));
         axisInfos.push_back(cc::ControllerInfo::AxisInfo(cc::StickAxisCode::RIGHT_STICK_X, controllerData->rightStick.stickX));
-        axisInfos.push_back(cc::ControllerInfo::AxisInfo(cc::StickAxisCode::RIGHT_STICK_Y, controllerData->rightStick.stickY));
+        axisInfos.push_back(cc::ControllerInfo::AxisInfo(cc::StickAxisCode::RIGHT_STICK_Y, -controllerData->rightStick.stickY));
 
         controllerPtr->buttonInfos                        = std::move(buttonInfos);
         controllerPtr->axisInfos                          = std::move(axisInfos);
@@ -275,7 +275,9 @@ public:
                 }
 
                 auto controllerEvent = getControllerEvent(gameControllerIndex, &controllerData);
-                events::Controller::broadcast(*controllerEvent);
+                if (controllerEvent) {
+                    events::Controller::broadcast(*controllerEvent);
+                }
                 // Update our prev variable so we can detect delta changes from down to up
                 prevButtonsDown = controllerData.buttonsDown;
             }
