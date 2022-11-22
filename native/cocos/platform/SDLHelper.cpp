@@ -446,10 +446,11 @@ bool SDLHelper::initJoy() {
             CC_LOG_INFO("Number of Axes: %d", SDL_JoystickNumAxes(_joy));
             CC_LOG_INFO("Number of Buttons: %d", SDL_JoystickNumButtons(_joy));
             CC_LOG_INFO("Number of Balls: %d", SDL_JoystickNumBalls(_joy));
+            return true;
         } else
             printf("Couldn't open Joystick 0\n");
-        return true;
     }
+    return false;
 }
 
 void SDLHelper::releaseJoy() {
